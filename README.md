@@ -1,6 +1,7 @@
 # Accelerated computing with CUDA in Python
 
-#### 
+(Also refer to [Accelerated Computing with CUDA in C](https://github.com/SarathMohanIITD/Accelerated-Computing-with-CUDA-in-C) ) <br />
+
 In this we will be looking at some basic commands for programming in CUDA for creating acceleratied appliccation. So lets see what is cuda.
  [CUDA](https://developer.nvidia.com/cuda-zone) is a parallel computing platform and programming model that enables dramatic increases in computing performance by harnessing the power of the GPU. 
  
@@ -125,4 +126,41 @@ add_kernel[blocks_per_grid, threads_per_block](d_x, d_y, d_out)
 cuda.synchronize()
 print(d_out.copy_to_host()) # Should be [1...4096]
 ```
-  
+#### Grid Stride Loops  
+- These days it is so often to see the datasets which has more than the total number of threads . So we nned something that can make a loop and reuse the threads when current procrss is over. This is known a **Grid Stride Loop**
+- Lets see an example code which uses Grid Stride Loop
+```
+from numba import cuda
+
+@cuda.jit
+def add_kernel(x, y, out) 
+
+    start = cuda.grid(1)
+    stride = cuda.gridsize(1)  
+                                                            
+    # This thread will start work at the data element index equal to that of its own
+    #    unique index in the grid, and then, will stride the number of threads in the grid each
+    #    iteration so long as it has not stepped out of the data's bounds. In this way, each
+    #    thread may work on more than one data element, and together, all threads will work on
+    #    every data element.
+    for i in range(start, x.shape[0], stride):
+        # Assuming x and y inputs are same length
+        out[i] = x[i] + y[i]
+
+import numpy as np
+
+n = 100000 # This is far more elements than threads in our grid
+x = np.arange(n).astype(np.int32)
+y = np.ones_like(x)
+
+d_x = cuda.to_device(x)
+d_y = cuda.to_device(y)
+d_out = cuda.device_array_like(d_x)
+
+threads_per_block = 128
+blocks_per_grid = 3
+
+add_kernel[blocks_per_grid, threads_per_block](d_x, d_y, d_out)
+print(d_out.copy_to_host()) # Remember, memory copy carries implicit synchronization
+
+```
